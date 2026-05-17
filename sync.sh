@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Sincronizza questa cartella con il repo remoto nemone81/img.
-# - Scarica le ultime modifiche da origin/main (rebase)
-# - Aggiunge tutti i file modificati/nuovi
-# - Crea un commit con un messaggio (passato come argomento o autogenerato)
-# - Esegue il push su origin/main
+# Sincronizza questa cartella con il repo remoto nemone81/img (mirror locale → remoto).
+# Ordine operazioni:
+#   1. Stage di tutte le modifiche locali (incluse cancellazioni)
+#   2. Commit (se c'è qualcosa da committare)
+#   3. Pull --rebase da origin/<branch>
+#   4. Push su origin/<branch>
+#
+# ATTENZIONE: i file mancanti localmente vengono cancellati anche su GitHub.
+# Se usi Dropbox Smart Sync, assicurati che tutti i file siano scaricati prima
+# di lanciare lo script, altrimenti potresti cancellare dati dal remoto.
 #
 # Uso:
 #   ./sync.sh                       # commit con messaggio automatico (timestamp)
@@ -21,9 +26,6 @@ fi
 BRANCH="$(git symbolic-ref --short HEAD)"
 echo "Branch corrente: $BRANCH"
 
-echo "→ Pull (rebase) da origin/$BRANCH ..."
-git pull --rebase origin "$BRANCH"
-
 echo "→ Stage di tutte le modifiche ..."
 git add -A
 
@@ -38,6 +40,9 @@ else
   echo "→ Commit: $MSG"
   git commit -m "$MSG"
 fi
+
+echo "→ Pull (rebase) da origin/$BRANCH ..."
+git pull --rebase origin "$BRANCH"
 
 echo "→ Push su origin/$BRANCH ..."
 git push origin "$BRANCH"
