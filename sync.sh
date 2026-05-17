@@ -1,50 +1,45 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
 # Sincronizza questa cartella con il repo remoto nemone81/img (mirror locale → remoto).
-# Ordine operazioni:
-#   1. Stage di tutte le modifiche locali (incluse cancellazioni)
-#   2. Commit (se c'è qualcosa da committare)
-#   3. Pull --rebase da origin/<branch>
-#   4. Push su origin/<branch>
-#
-# ATTENZIONE: i file mancanti localmente vengono cancellati anche su GitHub.
-# Se usi Dropbox Smart Sync, assicurati che tutti i file siano scaricati prima
-# di lanciare lo script, altrimenti potresti cancellare dati dal remoto.
+# I file mancanti localmente vengono cancellati anche su GitHub.
 #
 # Uso:
-#   ./sync.sh                       # commit con messaggio automatico (timestamp)
-#   ./sync.sh "messaggio commit"    # commit con messaggio personalizzato
-
-set -euo pipefail
+#   ./sync.sh                       -> messaggio di commit automatico (timestamp)
+#   ./sync.sh "messaggio commit"    -> messaggio di commit personalizzato
 
 cd "$(dirname "$0")"
 
-if [ ! -d .git ]; then
-  echo "Errore: questa cartella non è un repo git." >&2
+REMOTE_URL="https://github.com/nemone81/img.git"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+COMMIT_MSG="${1:-sync: $(date '+%Y-%m-%d %H:%M:%S')}"
+
+# Verifica che siamo nella repo giusta
+CURRENT_REMOTE="$(git remote get-url origin 2>/dev/null || echo '')"
+if [ "$CURRENT_REMOTE" != "$REMOTE_URL" ]; then
+  echo "ERRORE: la remote 'origin' non punta a $REMOTE_URL"
+  echo "Attuale: $CURRENT_REMOTE"
   exit 1
 fi
 
-BRANCH="$(git symbolic-ref --short HEAD)"
-echo "Branch corrente: $BRANCH"
+# Forza identita' git locale all'account nemone81
+git config user.name  "nemone81"
+git config user.email "fabio.crestoni@gmail.com"
 
-echo "→ Stage di tutte le modifiche ..."
-git add -A
+echo "==> Stato repository:"
+git status --short
 
-if git diff --cached --quiet; then
-  echo "Nessuna modifica locale da committare."
+if [ -z "$(git status --porcelain)" ]; then
+  echo "Nessuna modifica da committare. Provo comunque il push..."
 else
-  if [ "${1:-}" != "" ]; then
-    MSG="$1"
-  else
-    MSG="sync: $(date '+%Y-%m-%d %H:%M:%S')"
-  fi
-  echo "→ Commit: $MSG"
-  git commit -m "$MSG"
+  echo "==> Aggiungo i file modificati (incluse cancellazioni)"
+  git add -A
+
+  echo "==> Creo commit: $COMMIT_MSG"
+  git commit -m "$COMMIT_MSG"
 fi
 
-echo "→ Pull (rebase) da origin/$BRANCH ..."
-git pull --rebase origin "$BRANCH"
-
-echo "→ Push su origin/$BRANCH ..."
+echo "==> Push su origin/$BRANCH"
 git push origin "$BRANCH"
 
-echo "Sincronizzazione completata."
+echo "==> Fatto."
